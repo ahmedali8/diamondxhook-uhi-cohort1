@@ -1,18 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {console2} from "forge-std/console2.sol";
+
 import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
 import {PoolKey} from "v4-core/types/PoolKey.sol";
 import {Currency} from "v4-core/types/Currency.sol";
 import {CurrencySettleTake} from "v4-core/libraries/CurrencySettleTake.sol";
+import {CurrencyLibrary} from "v4-core/types/Currency.sol";
 import {Hooks} from "v4-core/libraries/Hooks.sol";
 import {BeforeSwapDelta, toBeforeSwapDelta} from "v4-core/types/BeforeSwapDelta.sol";
+import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
+
 import {BaseHook} from "../forks/BaseHook.sol";
 
 contract Hook is BaseHook {
+    using CurrencyLibrary for Currency;
     using CurrencySettleTake for Currency;
+    using FixedPointMathLib for uint256;
+    using FixedPointMathLib for int256;
 
     error AddLiquidityThroughHook();
+    error LAMMBertInvariantCheckFailed();
 
     struct CallbackData {
         uint256 amountEach;
@@ -20,6 +29,8 @@ contract Hook is BaseHook {
         Currency currency1;
         address sender;
     }
+
+    uint256 public constant C = 8; // liquidity concentration parameter
 
     constructor(IPoolManager poolManager) BaseHook(poolManager) {}
 
@@ -69,6 +80,50 @@ contract Hook is BaseHook {
             false // `burn` = `false` i.e. we're actually transferring tokens, not burning ERC-6909 Claim Tokens
         );
         callbackData.currency1.settle(poolManager, callbackData.sender, callbackData.amountEach, false);
+
+        // Calculate new reserves
+        uint256 newReserve0 = callbackData.currency0.balanceOf(address(poolManager)) + callbackData.amountEach;
+        console2.log(newReserve0, "newReserve0");
+
+        uint256 newReserve1 = callbackData.currency1.balanceOf(address(poolManager)) + callbackData.amountEach;
+        console2.log(newReserve1, "newReserve1");
+
+        // Formulae:
+        //   x = W(ce^c(2-y) / y) / c
+        //   y = W(ce^c(2-x) / x) / c
+        //
+        // Calculate Lambert W values for x and y
+        //
+        // For x
+        // console2.log((2 * C * 1e18), "2 * C * 1e18");
+        // console2.log(C * newReserve1, "cy");
+        // uint256 expValueX = uint256(FixedPointMathLib.expWad(int256((2 * C * 1e18) - (C * newReserve1))));
+
+        // uint256 lambertWInputX = C.mulWad(expValueX).divWad(newReserve1);
+        // uint256 x = uint256(FixedPointMathLib.lambertW0Wad(int256(lambertWInputX))).divWad(C);
+
+        // // For y
+        // uint256 expValueY = uint256(FixedPointMathLib.expWad(int256((2 * C) - (C * newReserve0))));
+        // uint256 lambertWInputY = C.mulWad(expValueY).divWad(newReserve0);
+        // uint256 y = uint256(FixedPointMathLib.lambertW0Wad(int256(lambertWInputY))).divWad(C);
+
+        // if c is zero then the formula converts to CPMM
+        // as the c becomes larger and larger then it becomes CSMM
+        // // Check the equation c(x + y) + ln(x * y) = 2c
+        // //
+        // // Calculate the left hand side
+        console2.log("c(x + y)", C * (newReserve0 + newReserve1));
+        console2.log("x", FixedPointMathLib.lnWad(int256(newReserve0.mulWad(newReserve1))));
+        uint256 lhs = C.mulWad(newReserve0 + newReserve1)
+            + uint256(FixedPointMathLib.lnWad(int256(newReserve0.mulWad(newReserve1))));
+        console2.log("lhs: ", lhs);
+        // Calculate the right hand side
+        uint256 rhs = 2 * C * 1e18;
+        console2.log("rhs: ", rhs);
+
+        if (lhs >= rhs) {
+            revert LAMMBertInvariantCheckFailed();
+        }
 
         // Since we didn't go through the regular "modify liquidity" flow,
         // the PM just has a debit of `amountEach` of each currency from us

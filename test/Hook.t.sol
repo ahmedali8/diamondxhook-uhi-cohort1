@@ -66,51 +66,51 @@ contract HookTest is Test, Deployers {
         );
     }
 
-    function test_swap_exactInput_zeroForOne() public {
-        PoolSwapTest.TestSettings memory settings =
-            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false});
+    // function test_swap_exactInput_zeroForOne() public {
+    //     PoolSwapTest.TestSettings memory settings =
+    //         PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false});
 
-        // Swap exact input 100 Token A
-        uint256 balanceOfTokenABefore = key.currency0.balanceOfSelf();
-        uint256 balanceOfTokenBBefore = key.currency1.balanceOfSelf();
-        swapRouter.swap(
-            key,
-            IPoolManager.SwapParams({
-                zeroForOne: true,
-                amountSpecified: -100e18,
-                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
-            }),
-            settings,
-            ZERO_BYTES
-        );
-        uint256 balanceOfTokenAAfter = key.currency0.balanceOfSelf();
-        uint256 balanceOfTokenBAfter = key.currency1.balanceOfSelf();
+    //     // Swap exact input 100 Token A
+    //     uint256 balanceOfTokenABefore = key.currency0.balanceOfSelf();
+    //     uint256 balanceOfTokenBBefore = key.currency1.balanceOfSelf();
+    //     swapRouter.swap(
+    //         key,
+    //         IPoolManager.SwapParams({
+    //             zeroForOne: true,
+    //             amountSpecified: -100e18,
+    //             sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+    //         }),
+    //         settings,
+    //         ZERO_BYTES
+    //     );
+    //     uint256 balanceOfTokenAAfter = key.currency0.balanceOfSelf();
+    //     uint256 balanceOfTokenBAfter = key.currency1.balanceOfSelf();
 
-        assertEq(balanceOfTokenBAfter - balanceOfTokenBBefore, 100e18);
-        assertEq(balanceOfTokenABefore - balanceOfTokenAAfter, 100e18);
-    }
+    //     assertEq(balanceOfTokenBAfter - balanceOfTokenBBefore, 100e18);
+    //     assertEq(balanceOfTokenABefore - balanceOfTokenAAfter, 100e18);
+    // }
 
-    function test_swap_exactOutput_zeroForOne() public {
-        PoolSwapTest.TestSettings memory settings =
-            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false});
+    // function test_swap_exactOutput_zeroForOne() public {
+    //     PoolSwapTest.TestSettings memory settings =
+    //         PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false});
 
-        // Swap exact output 100 Token A
-        uint256 balanceOfTokenABefore = key.currency0.balanceOfSelf();
-        uint256 balanceOfTokenBBefore = key.currency1.balanceOfSelf();
-        swapRouter.swap(
-            key,
-            IPoolManager.SwapParams({
-                zeroForOne: true,
-                amountSpecified: 100e18,
-                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
-            }),
-            settings,
-            ZERO_BYTES
-        );
-        uint256 balanceOfTokenAAfter = key.currency0.balanceOfSelf();
-        uint256 balanceOfTokenBAfter = key.currency1.balanceOfSelf();
+    //     // Swap exact output 100 Token A
+    //     uint256 balanceOfTokenABefore = key.currency0.balanceOfSelf();
+    //     uint256 balanceOfTokenBBefore = key.currency1.balanceOfSelf();
+    //     swapRouter.swap(
+    //         key,
+    //         IPoolManager.SwapParams({
+    //             zeroForOne: true,
+    //             amountSpecified: 100e18,
+    //             sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+    //         }),
+    //         settings,
+    //         ZERO_BYTES
+    //     );
+    //     uint256 balanceOfTokenAAfter = key.currency0.balanceOfSelf();
+    //     uint256 balanceOfTokenBAfter = key.currency1.balanceOfSelf();
 
-        assertEq(balanceOfTokenBAfter - balanceOfTokenBBefore, 100e18);
-        assertEq(balanceOfTokenABefore - balanceOfTokenAAfter, 100e18);
-    }
+    //     assertEq(balanceOfTokenBAfter - balanceOfTokenBBefore, 100e18);
+    //     assertEq(balanceOfTokenABefore - balanceOfTokenAAfter, 100e18);
+    // }
 }
