@@ -53,6 +53,50 @@ contract Hook is BaseHook {
         });
     }
 
+    function calculateOutput(uint256 amountIn, uint256 reserveIn, uint256 reserveOut, uint256 constantC)
+        public
+        pure
+        returns (uint256 amountOut)
+    {
+        console2.log("amountIn: ", amountIn); // 100000000000000000000
+        console2.log("reserveIn: ", reserveIn); // 1000000000000000000000
+        console2.log("reserveOut: ", reserveOut); // 1000000000000000000000
+        console2.log("constantC: ", constantC); // 8
+
+        // Actual formula:
+        // note: vice verse for x and y
+        //   y = (W(ce^(2c - cx))) / c
+        // where x is amountIn, y is amountOut
+
+        // Step 1: Calculate the numerator for the exponential term
+        // numerator = c * reserveOut
+        uint256 numerator = constantC * reserveOut;
+        console2.log("numerator: ", numerator); // 8000000000000000000000
+
+        // Step 2: Calculate the denominator for the exponential term
+        // denominator = reserveIn + amountIn
+        uint256 denominator = reserveIn + amountIn;
+        console2.log("denominator: ", denominator); // 1100000000000000000000
+
+        // Step 3: Calculate the exponential term
+        // expTerm = e^(c * reserveOut / (reserveIn + amountIn))
+        uint256 innerTerm = FixedPointMathLib.divWad(numerator, denominator);
+        console2.log("innerTerm: ", innerTerm); // 727272727272727272727
+
+        int256 expTerm = FixedPointMathLib.expWad(int256(innerTerm));
+        console2.log("expTerm: ", expTerm); // 1440473665311697751864
+
+        // Step 4: Apply the Lambert W function to the exponential term
+        // wValue = W(expTerm)
+        int256 wValue = FixedPointMathLib.lambertW0Wad(expTerm);
+        console2.log("wValue: ", wValue); // 5557566873012694094
+
+        // Step 5: Calculate the output amount
+        // amountOut = (wValue - (c * reserveIn)) / c
+        amountOut = FixedPointMathLib.divWad(uint256(wValue * 1e18) - constantC * reserveIn, constantC * 1e34);
+        console2.log("amountOut: ", amountOut); // 69469585912658576175
+    }
+
     // Disable adding liquidity through the PM
     function beforeAddLiquidity(address, PoolKey calldata, IPoolManager.ModifyLiquidityParams calldata, bytes calldata)
         external
@@ -69,7 +113,7 @@ contract Hook is BaseHook {
     }
 
     function unlockCallback(bytes calldata data) external override poolManagerOnly returns (bytes memory) {
-        CallbackData memory callbackData = abi.decode(data, (CallbackData));
+        CallbackData memory callbackData = abi.decode(data, (CallbackData)); // TODO: pass the c as well
 
         // Settle `amountEach` of each currency from the sender
         // i.e. Create a debit of `amountEach` of each currency with the Pool Manager
@@ -83,43 +127,18 @@ contract Hook is BaseHook {
 
         // Calculate new reserves
         uint256 newReserve0 = callbackData.currency0.balanceOf(address(poolManager)) + callbackData.amountEach;
-        console2.log(newReserve0, "newReserve0");
-
         uint256 newReserve1 = callbackData.currency1.balanceOf(address(poolManager)) + callbackData.amountEach;
-        console2.log(newReserve1, "newReserve1");
-
-        // Formulae:
-        //   x = W(ce^c(2-y) / y) / c
-        //   y = W(ce^c(2-x) / x) / c
-        //
-        // Calculate Lambert W values for x and y
-        //
-        // For x
-        // console2.log((2 * C * 1e18), "2 * C * 1e18");
-        // console2.log(C * newReserve1, "cy");
-        // uint256 expValueX = uint256(FixedPointMathLib.expWad(int256((2 * C * 1e18) - (C * newReserve1))));
-
-        // uint256 lambertWInputX = C.mulWad(expValueX).divWad(newReserve1);
-        // uint256 x = uint256(FixedPointMathLib.lambertW0Wad(int256(lambertWInputX))).divWad(C);
-
-        // // For y
-        // uint256 expValueY = uint256(FixedPointMathLib.expWad(int256((2 * C) - (C * newReserve0))));
-        // uint256 lambertWInputY = C.mulWad(expValueY).divWad(newReserve0);
-        // uint256 y = uint256(FixedPointMathLib.lambertW0Wad(int256(lambertWInputY))).divWad(C);
 
         // if c is zero then the formula converts to CPMM
         // as the c becomes larger and larger then it becomes CSMM
-        // // Check the equation c(x + y) + ln(x * y) = 2c
-        // //
-        // // Calculate the left hand side
-        console2.log("c(x + y)", C * (newReserve0 + newReserve1));
-        console2.log("x", FixedPointMathLib.lnWad(int256(newReserve0.mulWad(newReserve1))));
+        // Check the equation c(x + y) + ln(x * y) = 2c
+        //
+        // Calculate the left hand side
         uint256 lhs = C.mulWad(newReserve0 + newReserve1)
             + uint256(FixedPointMathLib.lnWad(int256(newReserve0.mulWad(newReserve1))));
-        console2.log("lhs: ", lhs);
+
         // Calculate the right hand side
         uint256 rhs = 2 * C * 1e18;
-        console2.log("rhs: ", rhs);
 
         if (lhs >= rhs) {
             revert LAMMBertInvariantCheckFailed();
@@ -132,7 +151,7 @@ contract Hook is BaseHook {
         // that balances out the debit
 
         // We will store those claim tokens with the hook, so when swaps take place
-        // liquidity from our CSMM can be used by minting/burning claim tokens the hook owns
+        // liquidity from our hook can be used by minting/burning claim tokens the hook owns
         callbackData.currency0.take(
             poolManager,
             address(this),
@@ -150,8 +169,32 @@ contract Hook is BaseHook {
         override
         returns (bytes4, BeforeSwapDelta, uint24)
     {
+        // 100000000000000000000 (100e18)
         uint256 amountInOutPositive =
             params.amountSpecified > 0 ? uint256(params.amountSpecified) : uint256(-params.amountSpecified);
+
+        // Retrieve the current reserves
+        // uint256 reserve0 = key.currency0.balanceOf(address(poolManager));
+        // uint256 reserve1 = key.currency1.balanceOf(address(poolManager));
+
+        uint256 amountOut;
+        if (params.zeroForOne) {
+            // If user is selling Token 0 (specifiedCurrency) and buying Token 1 (unspecifiedCurrency)
+            amountOut = calculateOutput(
+                amountInOutPositive,
+                key.currency0.balanceOf(address(poolManager)),
+                key.currency1.balanceOf(address(poolManager)),
+                C
+            );
+        } else {
+            // If user is selling Token 1 (specifiedCurrency) and buying Token 0 (unspecifiedCurrency)
+            amountOut = calculateOutput(
+                amountInOutPositive,
+                key.currency1.balanceOf(address(poolManager)),
+                key.currency0.balanceOf(address(poolManager)),
+                C
+            );
+        }
 
         /**
          * BalanceDelta is a packed value of (currency0Amount, currency1Amount)
@@ -184,10 +227,22 @@ contract Hook is BaseHook {
          *         In Case (4):
          *             -> the user is specifying their swap amount in terms of ETH, so the specifiedCurrency is ETH
          *             -> the unspecifiedCurrency is USDC
+         *
+         * To implement the Lambert AMM logic:
+         *
+         * 1. Retrieve the current reserves of the pool.
+         * 2. Calculate the output amount using the custom Lambert AMM formula:
+         *    - For zeroForOne swaps (Token 0 for Token 1), use the reserves of Token 0 and Token 1.
+         *    - For oneForZero swaps (Token 1 for Token 0), use the reserves of Token 1 and Token 0.
+         * 3. Update the BeforeSwapDelta based on the calculated output amount.
+         * 4. Handle debits and credits accordingly:
+         *    - Debit the specified currency from the user to the Pool Manager.
+         *    - Credit the unspecified currency from the Pool Manager to the user.
          */
+        console2.log("int128(int256(amountOut)): ", int128(int256(amountOut)));
         BeforeSwapDelta beforeSwapDelta = toBeforeSwapDelta(
-            int128(-params.amountSpecified), // So `specifiedAmount` = +100
-            int128(params.amountSpecified) // Unspecified amount (output delta) = -100
+            int128(-params.amountSpecified), // Specified amount (input delta)
+            int128(params.amountSpecified >= 0 ? int256(amountOut) : -int256(amountOut)) // Unspecified amount (output delta)
         );
 
         if (params.zeroForOne) {
@@ -196,15 +251,19 @@ contract Hook is BaseHook {
             // They will be sending Token 0 to the PM, creating a debit of Token 0 in the PM
             // We will take claim tokens for that Token 0 from the PM and keep it in the hook
             // and create an equivalent credit for that Token 0 since it is ours!
-            key.currency0.take(poolManager, address(this), amountInOutPositive, true);
+            key.currency0.take(
+                poolManager, address(this), params.amountSpecified >= 0 ? amountOut : amountInOutPositive, true
+            );
 
             // They will be receiving Token 1 from the PM, creating a credit of Token 1 in the PM
             // We will burn claim tokens for Token 1 from the hook so PM can pay the user
             // and create an equivalent debit for Token 1 since it is ours!
-            key.currency1.settle(poolManager, address(this), amountInOutPositive, true);
+            key.currency1.settle(
+                poolManager, address(this), params.amountSpecified >= 0 ? amountInOutPositive : amountOut, true
+            );
         } else {
             key.currency0.settle(poolManager, address(this), amountInOutPositive, true);
-            key.currency1.take(poolManager, address(this), amountInOutPositive, true);
+            key.currency1.take(poolManager, address(this), amountOut, true);
         }
 
         return (this.beforeSwap.selector, beforeSwapDelta, 0);
