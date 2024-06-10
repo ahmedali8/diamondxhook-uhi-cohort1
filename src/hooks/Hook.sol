@@ -11,17 +11,21 @@ import {CurrencyLibrary} from "v4-core/types/Currency.sol";
 import {Hooks} from "v4-core/libraries/Hooks.sol";
 import {BeforeSwapDelta, toBeforeSwapDelta} from "v4-core/types/BeforeSwapDelta.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
-
+import {BalanceDelta, BalanceDeltaLibrary} from "v4-core/types/BalanceDelta.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {BaseHook} from "../forks/BaseHook.sol";
 
-contract Hook is BaseHook {
+contract Hook is BaseHook, Ownable {
     using CurrencyLibrary for Currency;
     using CurrencySettleTake for Currency;
     using FixedPointMathLib for uint256;
     using FixedPointMathLib for int256;
+    using BalanceDeltaLibrary for BalanceDelta;
 
     error AddLiquidityThroughHook();
     error LAMMBertInvariantCheckFailed();
+    error BalanceGreaterThanThreshold();
 
     struct CallbackData {
         uint256 amountEach;
@@ -30,9 +34,13 @@ contract Hook is BaseHook {
         address sender;
     }
 
+    bool public thresholdCheck = false;
+    uint256 public buyThreshold = 80; // 80%
+    uint256 public sellThreshold = 80; // 80%
+
     uint256 public constant C = 8; // liquidity concentration parameter
 
-    constructor(IPoolManager poolManager) BaseHook(poolManager) {}
+    constructor(IPoolManager poolManager) BaseHook(poolManager) Ownable(_msgSender()) {}
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
         return Hooks.Permissions({
@@ -43,7 +51,7 @@ contract Hook is BaseHook {
             beforeRemoveLiquidity: false,
             afterRemoveLiquidity: false,
             beforeSwap: true, // Override how swaps are done
-            afterSwap: false,
+            afterSwap: true, // Override how swaps are done
             beforeDonate: false,
             afterDonate: false,
             beforeSwapReturnDelta: true, // Allow beforeSwap to return a custom delta
@@ -239,7 +247,6 @@ contract Hook is BaseHook {
          *    - Debit the specified currency from the user to the Pool Manager.
          *    - Credit the unspecified currency from the Pool Manager to the user.
          */
-        console2.log("int128(int256(amountOut)): ", int128(int256(amountOut)));
         BeforeSwapDelta beforeSwapDelta = toBeforeSwapDelta(
             int128(-params.amountSpecified), // Specified amount (input delta)
             int128(params.amountSpecified >= 0 ? int256(amountOut) : -int256(amountOut)) // Unspecified amount (output delta)
@@ -267,5 +274,42 @@ contract Hook is BaseHook {
         }
 
         return (this.beforeSwap.selector, beforeSwapDelta, 0);
+    }
+
+    function afterSwap(
+        address sender,
+        PoolKey calldata key,
+        IPoolManager.SwapParams calldata params,
+        BalanceDelta balanceDelta,
+        bytes calldata
+    ) external override returns (bytes4, int128) {
+        if (!thresholdCheck) {
+            return (this.afterSwap.selector, 0);
+        }
+
+        uint256 totalSupply1 = IERC20(Currency.unwrap(key.currency1)).totalSupply();
+        uint256 bal1 = key.currency1.balanceOf(sender);
+        uint256 balanceDelta1 = uint256(int256(balanceDelta.amount1()));
+
+        uint256 threshold = params.zeroForOne ? buyThreshold : sellThreshold;
+        // threshold check
+        if (bal1 + balanceDelta1 > totalSupply1 * threshold / 100) {
+            revert BalanceGreaterThanThreshold();
+        }
+
+        return (this.afterSwap.selector, 0);
+    }
+
+    // only owner functions
+    function toggleThresholdCheck() external onlyOwner {
+        thresholdCheck = !thresholdCheck;
+    }
+
+    function setBuyThreshold(uint256 _buyThreshold) external onlyOwner {
+        buyThreshold = _buyThreshold;
+    }
+
+    function setSellThreshold(uint256 _sellThreshold) external onlyOwner {
+        sellThreshold = _sellThreshold;
     }
 }

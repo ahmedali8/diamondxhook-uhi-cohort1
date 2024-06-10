@@ -27,8 +27,10 @@ contract HookTest is Test, Deployers {
         deployFreshManagerAndRouters();
         (currency0, currency1) = deployMintAndApprove2Currencies();
 
-        uint160 flags =
-            uint160(Hooks.BEFORE_ADD_LIQUIDITY_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG);
+        uint160 flags = uint160(
+            Hooks.BEFORE_ADD_LIQUIDITY_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_FLAG
+        );
 
         (address hookAddress, bytes32 salt) =
             HookMiner.find(address(this), flags, type(Hook).creationCode, abi.encode(address(manager)));
