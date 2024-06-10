@@ -16,7 +16,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {BaseHook} from "../forks/BaseHook.sol";
 
-contract Hook is BaseHook, Ownable {
+contract DiamondXHook is BaseHook, Ownable {
     using CurrencyLibrary for Currency;
     using CurrencySettleTake for Currency;
     using FixedPointMathLib for uint256;

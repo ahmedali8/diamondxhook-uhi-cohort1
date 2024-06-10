@@ -13,15 +13,15 @@ import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
 import {CurrencyLibrary, Currency} from "v4-core/types/Currency.sol";
 import {PoolSwapTest} from "v4-core/test/PoolSwapTest.sol";
 import {Deployers} from "v4-core-test/utils/Deployers.sol";
-import {Hook} from "../src/hooks/Hook.sol";
+import {DiamondXHook} from "../src/hooks/DiamondXHook.sol";
 import {IERC20Minimal} from "v4-core/interfaces/external/IERC20Minimal.sol";
 import {HookMiner} from "./utils/HookMiner.sol";
 
-contract HookTest is Test, Deployers {
+contract DiamondXHookTest is Test, Deployers {
     using PoolIdLibrary for PoolId;
     using CurrencyLibrary for Currency;
 
-    Hook hook;
+    DiamondXHook hook;
 
     function setUp() public {
         deployFreshManagerAndRouters();
@@ -33,9 +33,9 @@ contract HookTest is Test, Deployers {
         );
 
         (address hookAddress, bytes32 salt) =
-            HookMiner.find(address(this), flags, type(Hook).creationCode, abi.encode(address(manager)));
+            HookMiner.find(address(this), flags, type(DiamondXHook).creationCode, abi.encode(address(manager)));
 
-        hook = new Hook{salt: salt}(manager);
+        hook = new DiamondXHook{salt: salt}(manager);
 
         (key,) = initPool(currency0, currency1, hook, 3000, SQRT_PRICE_1_1, ZERO_BYTES);
 
@@ -61,7 +61,7 @@ contract HookTest is Test, Deployers {
     }
 
     function test_cannotModifyLiquidity() public {
-        vm.expectRevert(Hook.AddLiquidityThroughHook.selector);
+        vm.expectRevert(DiamondXHook.AddLiquidityThroughHook.selector);
         modifyLiquidityRouter.modifyLiquidity(
             key,
             IPoolManager.ModifyLiquidityParams({tickLower: -60, tickUpper: 60, liquidityDelta: 1e18, salt: bytes32(0)}),
