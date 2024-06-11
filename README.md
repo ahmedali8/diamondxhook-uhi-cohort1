@@ -1,127 +1,84 @@
-# v4-template
-### **A template for writing Uniswap v4 Hooks 🦄**
+# DiamondX - Bringing Liquidity to Real-World Assets
 
-[`Use this Template`](https://github.com/uniswapfoundation/v4-template/generate)
+## Introduction
 
-1. The example hook [Counter.sol](src/Counter.sol) demonstrates the `beforeSwap()` and `afterSwap()` hooks
-2. The test template [Counter.t.sol](test/Counter.t.sol) preconfigures the v4 pool manager, test tokens, and test liquidity.
+Welcome to DiamondX, a revolutionary system that bridges the gap between real-world assets (RWA) and decentralized finance (DeFi). Our platform aims to provide a seamless integration of diamonds into the DeFi ecosystem, allowing users to leverage the liquidity of Uniswap through an innovative combination of CPMM and CSMM mechanisms.
 
-<details>
-<summary>Updating to v4-template:latest</summary>
+## Overview
 
-This template is actively maintained -- you can update the v4 dependencies, scripts, and helpers: 
-```bash
-git remote add template https://github.com/uniswapfoundation/v4-template
-git fetch template
-git merge template/main <BRANCH> --allow-unrelated-histories
-```
+Diamonds vary greatly in rarity and volatility, and our system is designed to handle these variations efficiently. By using a dynamic approach, we ensure optimal liquidity provision and stability for both volatile and non-volatile diamonds.
 
-</details>
+### Key Features
 
----
+1. **Combination of CPMM and CSMM**:
 
-## Set up
+   - For volatile diamonds, we use Constant Product Market Maker (CPMM).
+   - For non-volatile diamonds, we use Constant Sum Market Maker (CSMM).
+   - This dynamic approach is powered by our custom LAMMBert AMM curve.
 
-*requires [foundry](https://book.getfoundry.sh)*
+2. **Dynamic Fee System**:
 
-```
-forge install
-forge test
-```
+   - Our platform incorporates a dynamic fee structure to enhance functionality and incentivize liquidity providers.
 
-### Local Development (Anvil)
+3. **Fractional Ownership**:
+   - Diamonds are fractionalized into smaller units to make them accessible to a broader audience.
+   - Custom checks ensure no single entity can own an entire diamond, though this restriction can be adjusted when necessary.
 
-Other than writing unit tests (recommended!), you can only deploy & test hooks on [anvil](https://book.getfoundry.sh/anvil/)
+## Workflow
 
-```bash
-# start anvil, a local EVM chain
-anvil
+1. **Verification**:
 
-# in a new terminal
-forge script script/Anvil.s.sol \
-    --rpc-url http://localhost:8545 \
-    --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-    --broadcast
-```
+   - Diamonds are verified by trusted off-chain parties.
 
-<details>
-<summary><h3>Testnets</h3></summary>
+2. **NFT Conversion**:
 
-NOTE: 11/21/2023, the Goerli deployment is out of sync with the latest v4. **It is recommend to use local testing instead**
+   - Verified diamonds are converted into NFTs which are managed by our platform.
 
-~~For testing on Goerli Testnet the Uniswap Foundation team has deployed a slimmed down version of the V4 contract (due to current contract size limits) on the network.~~
+3. **NFT Locking**:
 
-~~The relevant addresses for testing on Goerli are the ones below~~
+   - The diamond NFTs are locked into a secure vault.
 
-```bash
-POOL_MANAGER = 0x0
-POOL_MODIFY_POSITION_TEST = 0x0
-SWAP_ROUTER = 0x0
-```
+4. **ERC20 Token Creation**:
 
-Update the following command with your own private key:
+   - The vault generates ERC20 tokens corresponding to the diamond NFTs.
 
-```
-forge script script/00_Counter.s.sol \
---rpc-url https://rpc.ankr.com/eth_goerli \
---private-key [your_private_key_on_goerli_here] \
---broadcast
-```
+5. **Liquidity Provision**:
+   - Liquidity providers (LPs) can supply liquidity using our custom curve implementation via a hook.
 
-### *Deploying your own Tokens For Testing*
+## Technical Details
 
-Because V4 is still in testing mode, most networks don't have liquidity pools live on V4 testnets. We recommend launching your own test tokens and expirementing with them that. We've included in the templace a Mock UNI and Mock USDC contract for easier testing. You can deploy the contracts and when you do you'll have 1 million mock tokens to test with for each contract. See deployment commands below
+![Architecture](./architecture.png)
 
-```
-forge create script/mocks/mUNI.sol:MockUNI \
---rpc-url [your_rpc_url_here] \
---private-key [your_private_key_on_goerli_here]
-```
+### LAMMBert AMM Custom Curve
 
-```
-forge create script/mocks/mUSDC.sol:MockUSDC \
---rpc-url [your_rpc_url_here] \
---private-key [your_private_key_on_goerli_here]
-```
+...
 
-</details>
+- **CPMM**: Suitable for volatile assets, ensuring continuous liquidity.
+- **CSMM**: Ideal for stable assets, maintaining price stability.
 
----
+### Dynamic Fee Structure
 
-<details>
-<summary><h2>Troubleshooting</h2></summary>
+The dynamic fee system adjusts based on market conditions and user activity, ensuring fair and efficient transactions.
 
+### Fractionalization and Ownership Checks
 
+Diamonds are extremely valuable, so we fractionalize ownership to lower the entry barrier. Our system includes custom checks to prevent monopolization of any single diamond, which can be overridden if necessary.
 
-### *Permission Denied*
+### Uniswap v4 Hooks Integration
 
-When installing dependencies with `forge install`, Github may throw a `Permission Denied` error
+Leveraging Uniswap v4 hooks, we provide:
 
-Typically caused by missing Github SSH keys, and can be resolved by following the steps [here](https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh) 
+- **Custom Trading Rules**: Tailored to the specific requirements of the diamond market.
+- **Compliance and Security**: Ensuring adherence to regulations and enhancing security through custom hooks.
+- **Seamless User Experience**: Users interact with fractionalized tokens without additional complexity, thanks to behind-the-scenes custom logic.
 
-Or [adding the keys to your ssh-agent](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent#adding-your-ssh-key-to-the-ssh-agent), if you have already uploaded SSH keys
+## Customization Hub
 
-### Hook deployment failures
+Our platform also includes a Customization Hub, allowing developers to implement proprietary functions and applications tailored to the needs of each RWA use case. This hub ensures flexibility and scalability, enabling developers to create bespoke solutions for various industries.
 
-Hook deployment failures are caused by incorrect flags or incorrect salt mining
+## How to Use
 
-1. Verify the flags are in agreement:
-    * `getHookCalls()` returns the correct flags
-    * `flags` provided to `HookMiner.find(...)`
-2. Verify salt mining is correct:
-    * In **forge test**: the *deploye*r for: `new Hook{salt: salt}(...)` and `HookMiner.find(deployer, ...)` are the same. This will be `address(this)`. If using `vm.prank`, the deployer will be the pranking address
-    * In **forge script**: the deployer must be the CREATE2 Proxy: `0x4e59b44847b379578588920cA78FbF26c0B4956C`
-        * If anvil does not have the CREATE2 deployer, your foundry may be out of date. You can update it with `foundryup`
-
-</details>
-
----
-
-Additional resources:
-
-[v4-periphery](https://github.com/uniswap/v4-periphery) contains advanced hook implementations that serve as a great reference
-
-[v4-core](https://github.com/uniswap/v4-core)
-
-[v4-by-example](https://v4-by-example.org)
-
+1. **Diamond Verification**: Submit your diamond for verification through our trusted off-chain partners.
+2. **NFT Management**: Once verified, your diamond is converted into an NFT and locked in our vault.
+3. **Token Creation**: The vault issues ERC20 tokens for your diamond NFT.
+4. **Provide Liquidity**: Use our hook to provide liquidity on Uniswap with the newly created ERC20 tokens.
